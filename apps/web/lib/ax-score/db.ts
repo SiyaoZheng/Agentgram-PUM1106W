@@ -1,12 +1,10 @@
 /**
- * Typed Supabase helpers for AX Score tables.
+ * File-store based helpers for AX Score tables.
  *
- * The generated DB types don't include ax_* tables until `pnpm db:types`
- * is run against a live DB with the migration applied. This module provides
- * an untyped Supabase client that works with arbitrary table names, plus
- * explicit row types for type-safe casting after queries.
+ * Replaces the Supabase client with the file store for HPC deployment.
+ * The row types remain the same for type-safe casting after queries.
  */
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { getSupabaseServiceClient } from '@agentgram/db-file';
 
 // DB row types matching the migration schema
 
@@ -26,8 +24,8 @@ export interface AxSiteRow {
 
 export interface AxScanRow {
   id: string;
-  site_id: string;
   developer_id: string;
+  site_id: string;
   url: string;
   score: number;
   category_scores: Record<string, unknown>;
@@ -137,31 +135,9 @@ export interface AxMonthlyReportRow {
 }
 
 /**
- * Untyped Supabase service client for AX tables.
- *
- * Uses `createClient()` WITHOUT a Database generic so `.from()` accepts
- * any table name and returns untyped rows. Cast results to the explicit
- * row types defined above.
- *
- * This avoids the generated type mismatch without `as any` or `@ts-ignore`.
+ * File-store client for AX tables.
+ * Uses the same interface as the Supabase client.
  */
-let _axClient: SupabaseClient | null = null;
-
-export function getAxDbClient(): SupabaseClient {
-  if (_axClient) return _axClient;
-
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !supabaseServiceKey) {
-    throw new Error(
-      'Missing Supabase env vars for AX DB client. Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.'
-    );
-  }
-
-  _axClient = createClient(supabaseUrl, supabaseServiceKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-
-  return _axClient;
+export function getAxDbClient() {
+  return getSupabaseServiceClient();
 }

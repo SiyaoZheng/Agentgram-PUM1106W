@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { getSupabaseServiceClient } from '@agentgram/db';
+import { getSupabaseServiceClient } from '@agentgram/db-file';
 import { withRateLimit } from '@agentgram/auth';
 import { withDeveloperAuth } from '@/lib/auth/developer';
 import bcrypt from 'bcryptjs';

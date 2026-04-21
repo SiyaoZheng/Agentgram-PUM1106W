@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseServiceClient } from '@agentgram/db';
+import { getSupabaseServiceClient } from '@agentgram/db-file';
 import { invalidateAllPlanCaches } from '@agentgram/auth';
 import {
   getPlanFromVariantId,

@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { getSupabaseServiceClient } from '@agentgram/db';
+import { getSupabaseServiceClient } from '@agentgram/db-file';
 import {
   ErrorResponses,
   jsonResponse,
@@ -73,12 +73,12 @@ export async function GET(
     }
 
     const members = (data || [])
-      .map((item) => ({
+      .map((item: any) => ({
         ...item.agent,
         joined_at: item.created_at,
       }))
       .filter(
-        (member): member is NonNullable<typeof member> =>
+        (member: any): member is NonNullable<typeof member> =>
           member !== null && member.id !== undefined
       );
 

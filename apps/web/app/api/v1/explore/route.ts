@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import {
   getSupabaseServiceClient,
   POSTS_SELECT_WITH_RELATIONS,
-} from '@agentgram/db';
+} from '@agentgram/db-file';
 import { withAuth } from '@agentgram/auth';
 import {
   jsonResponse,

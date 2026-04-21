@@ -5,6 +5,7 @@ import {
   API_KEY_MAX_LENGTH,
   API_KEY_PREFIX_LENGTH,
 } from '@agentgram/shared';
+import { getFileStore } from '@agentgram/db-file';
 
 const MAX_PREFIX_MATCHES = 5;
 
@@ -12,13 +13,6 @@ export interface VerifiedAgent {
   agentId: string;
   name: string;
   permissions: string[];
-}
-
-function getSupabaseConfig(): { url: string; serviceKey: string } | null {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !serviceKey) return null;
-  return { url, serviceKey };
 }
 
 /**
@@ -50,13 +44,10 @@ export function isValidApiKeyFormat(apiKey: string): boolean {
 }
 
 /**
- * Verify an API key against the database and return the associated agent info.
- *
- * Uses raw fetch to the Supabase REST API to avoid importing @supabase/supabase-js
- * in the auth package (keeps it lightweight, avoids circular dependencies).
+ * Verify an API key against the file store and return the associated agent info.
  */
 export async function verifyApiKey(
-  apiKey: string
+  apiKey: string,
 ): Promise<VerifiedAgent | null> {
   if (!isValidApiKeyFormat(apiKey)) {
     return null;
@@ -66,35 +57,10 @@ export async function verifyApiKey(
     return null;
   }
 
-  const config = getSupabaseConfig();
-  if (!config) {
-    console.error('Supabase configuration missing for API key verification');
-    return null;
-  }
-
+  const store = getFileStore();
   const keyPrefix = apiKey.substring(0, API_KEY_PREFIX_LENGTH);
 
-  const keysRes = await fetch(
-    `${config.url}/rest/v1/api_keys?select=agent_id,key_hash,expires_at,permissions&key_prefix=eq.${encodeURIComponent(keyPrefix)}&limit=${String(MAX_PREFIX_MATCHES + 1)}`,
-    {
-      headers: {
-        apikey: config.serviceKey,
-        Authorization: `Bearer ${config.serviceKey}`,
-      },
-    }
-  );
-
-  if (!keysRes.ok) {
-    console.error('API key lookup error:', keysRes.statusText);
-    return null;
-  }
-
-  const apiKeys = (await keysRes.json()) as {
-    agent_id: string | null;
-    key_hash: string;
-    expires_at: string | null;
-    permissions: unknown;
-  }[];
+  const apiKeys = store.filter('api_keys', (row) => row.key_prefix === keyPrefix);
 
   if (!apiKeys || apiKeys.length === 0) {
     return null;
@@ -107,7 +73,7 @@ export async function verifyApiKey(
   // Compare ALL candidates to avoid timing leaks that reveal match position
   let matchedKey: (typeof apiKeys)[number] | null = null;
   for (const record of apiKeys) {
-    const isMatch = await bcrypt.compare(apiKey, record.key_hash);
+    const isMatch = await bcrypt.compare(apiKey, record.key_hash as string);
     if (isMatch && !matchedKey) {
       matchedKey = record;
     }
@@ -118,7 +84,7 @@ export async function verifyApiKey(
   }
 
   if (matchedKey.expires_at) {
-    const keyExpiry = Date.parse(matchedKey.expires_at);
+    const keyExpiry = Date.parse(matchedKey.expires_at as string);
     if (!isNaN(keyExpiry) && keyExpiry <= Date.now()) {
       return null;
     }
@@ -128,37 +94,21 @@ export async function verifyApiKey(
     return null;
   }
 
-  const agentRes = await fetch(
-    `${config.url}/rest/v1/agents?select=id,name&id=eq.${encodeURIComponent(matchedKey.agent_id)}`,
-    {
-      headers: {
-        apikey: config.serviceKey,
-        Authorization: `Bearer ${config.serviceKey}`,
-      },
-    }
-  );
-
-  if (!agentRes.ok) {
-    return null;
-  }
-
-  const agents = (await agentRes.json()) as { id: string; name: string }[];
-  const agent = agents[0];
-
+  const agent = store.getById('agents', String(matchedKey.agent_id));
   if (!agent) {
     return null;
   }
 
   const permissions = Array.isArray(matchedKey.permissions)
-    ? matchedKey.permissions.filter(
+    ? (matchedKey.permissions as unknown[]).filter(
         (permission: unknown): permission is string =>
-          typeof permission === 'string'
+          typeof permission === 'string',
       )
     : [];
 
   return {
     agentId: agent.id,
-    name: agent.name,
+    name: agent.name as string,
     permissions,
   };
 }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseServiceClient } from '@agentgram/db';
+import { getSupabaseServiceClient } from '@agentgram/db-file';
 import { withDeveloperAuth } from '@/lib/auth/developer';
 
 export const GET = withDeveloperAuth(async function GET(req: NextRequest) {

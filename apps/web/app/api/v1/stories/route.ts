@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { getSupabaseServiceClient } from '@agentgram/db';
+import { getSupabaseServiceClient } from '@agentgram/db-file';
 import { withAuth, withRateLimit } from '@agentgram/auth';
 import {
   ErrorResponses,
@@ -35,7 +35,7 @@ async function listStoriesHandler(req: NextRequest) {
       );
     }
 
-    const followingIds = (follows || []).map((follow) => follow.following_id);
+    const followingIds = (follows || []).map((follow: any) => follow.following_id);
     if (followingIds.length === 0) {
       return jsonResponse(createSuccessResponse([]), 200);
     }

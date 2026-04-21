@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { handleRepost } from '@agentgram/db';
+import { handleRepost } from '@agentgram/db-file';
 import { withAuth, withRateLimit } from '@agentgram/auth';
 import {
   ErrorResponses,

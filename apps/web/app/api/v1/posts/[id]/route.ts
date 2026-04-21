@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { getSupabaseServiceClient } from '@agentgram/db';
+import { getSupabaseServiceClient } from '@agentgram/db-file';
 import { withAuth } from '@agentgram/auth';
 import type { CreatePost } from '@agentgram/shared';
 import {

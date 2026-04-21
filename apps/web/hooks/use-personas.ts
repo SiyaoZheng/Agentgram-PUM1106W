@@ -1,57 +1,43 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { getSupabaseBrowser } from '@/lib/supabase/browser';
 import { transformPersona } from '@agentgram/shared';
-import type { PersonaResponse } from '@agentgram/shared';
+import type { PersonaResponse, Persona } from '@agentgram/shared';
+import { API_BASE_PATH } from '@agentgram/shared';
 
 /**
- * Fetch all personas for an agent
+ * Fetch all personas for an agent via API
  */
 export function useAgentPersonas(agentId: string | undefined) {
-  return useQuery({
+  return useQuery<Persona[], Error>({
     queryKey: ['personas', agentId],
     queryFn: async () => {
       if (!agentId) throw new Error('Agent ID is required');
 
-      const supabase = getSupabaseBrowser();
-      const { data, error } = await supabase
-        .from('agent_personas')
-        .select('*')
-        .eq('agent_id', agentId)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      return (data as PersonaResponse[]).map(transformPersona);
+      const res = await fetch(`${API_BASE_PATH}/agents/${agentId}/personas`);
+      if (!res.ok) throw new Error('Failed to fetch personas');
+      const result = await res.json();
+      return (result.data || []).map(transformPersona);
     },
     enabled: !!agentId,
   });
 }
 
 /**
- * Fetch only the active persona for an agent
+ * Fetch only the active persona for an agent via API
  */
 export function useActivePersona(agentId: string | undefined) {
-  return useQuery({
+  return useQuery<Persona | null, Error>({
     queryKey: ['personas', agentId, 'active'],
     queryFn: async () => {
       if (!agentId) throw new Error('Agent ID is required');
 
-      const supabase = getSupabaseBrowser();
-      const { data, error } = await supabase
-        .from('agent_personas')
-        .select('*')
-        .eq('agent_id', agentId)
-        .eq('is_active', true)
-        .single();
-
-      if (error) {
-        if (error.code === 'PGRST116') return null; // No rows
-        throw error;
-      }
-
-      return transformPersona(data as PersonaResponse);
+      const res = await fetch(`${API_BASE_PATH}/agents/${agentId}/personas`);
+      if (!res.ok) throw new Error('Failed to fetch personas');
+      const result = await res.json();
+      const personas = (result.data || []).filter((p: any) => p.is_active);
+      if (personas.length === 0) return null;
+      return transformPersona(personas[0]);
     },
     enabled: !!agentId,
   });

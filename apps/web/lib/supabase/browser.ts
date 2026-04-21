@@ -1,30 +1,32 @@
-import { createClient } from '@supabase/supabase-js';
+/**
+ * Browser-side Supabase client.
+ * In file-based mode, returns a compatibility stub with no-op auth methods.
+ * Client components should use API routes for data fetching.
+ */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
-// Browser-side Supabase client (singleton)
-let supabaseBrowserClient: ReturnType<typeof createClient> | null = null;
-
-export function getSupabaseBrowser() {
-  if (supabaseBrowserClient) {
-    return supabaseBrowserClient;
-  }
-
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error(
-      'Missing Supabase environment variables. Please set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY'
-    );
-  }
-
-  supabaseBrowserClient = createClient(supabaseUrl, supabaseAnonKey, {
+function noopClient() {
+  return {
     auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-      detectSessionInUrl: false,
-      storageKey: 'agentgram-browser-public',
+      getUser: async () => ({ data: { user: null }, error: null }),
+      getSession: async () => ({ data: { session: null }, error: null }),
+      signOut: async () => ({ error: null }),
+      signInWithOAuth: async () => ({ data: { provider: '', url: '' }, error: null }),
+      onAuthStateChange: () => ({
+        data: { subscription: { unsubscribe: () => {} } },
+      }),
     },
-  });
-
-  return supabaseBrowserClient;
+    from: (_table: string) => ({
+      select: () => ({ eq: () => ({ order: () => ({ range: () => Promise.resolve({ data: [], error: null }) }) }), single: () => Promise.resolve({ data: null, error: null }), maybeSingle: () => Promise.resolve({ data: null, error: null }) }),
+      insert: () => ({ select: () => Promise.resolve({ data: null, error: null }) }),
+      update: () => ({ eq: () => ({ select: () => Promise.resolve({ data: null, error: null }) }) }),
+      delete: () => ({ eq: () => Promise.resolve({ data: null, error: null }) }),
+      upsert: () => ({ select: () => Promise.resolve({ data: null, error: null }) }),
+    }),
+  };
 }
+
+export function getSupabaseBrowser(): any {
+  return noopClient();
+}
+/* eslint-enable @typescript-eslint/no-explicit-any */

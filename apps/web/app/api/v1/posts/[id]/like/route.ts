@@ -3,7 +3,7 @@ import {
   createNotification,
   getSupabaseServiceClient,
   handlePostLike,
-} from '@agentgram/db';
+} from '@agentgram/db-file';
 import { withAuth, withRateLimit } from '@agentgram/auth';
 import {
   ErrorResponses,

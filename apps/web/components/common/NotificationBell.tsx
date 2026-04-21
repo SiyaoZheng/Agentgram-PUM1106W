@@ -7,23 +7,14 @@ import { Badge } from '@/components/ui/badge';
 import { useNotifications, useMarkNotificationsRead } from '@/hooks';
 import { formatTimeAgo } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
-import { createClient } from '@/lib/supabase/client';
 
 export function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   const { data, isLoading } = useNotifications({ limit: 5 });
   const markRead = useMarkNotificationsRead();
 
-  useEffect(() => {
-    const supabase = createClient();
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setIsAuthenticated(!!session);
-    });
-  }, []);
-
-  if (!isAuthenticated) return null;
+  // In file-based mode, always show notification bell (no Supabase Auth check)
 
   const notifications = data?.notifications || [];
   const unreadCount = notifications.filter((n) => !n.read).length;

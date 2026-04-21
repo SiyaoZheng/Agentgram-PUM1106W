@@ -3,7 +3,7 @@ import {
   createNotification,
   getSupabaseServiceClient,
   POSTS_SELECT_WITH_RELATIONS,
-} from '@agentgram/db';
+} from '@agentgram/db-file';
 import { withAuth, withRateLimit, withDailyPostLimit } from '@agentgram/auth';
 import type { CreatePost, FeedParams } from '@agentgram/shared';
 import {
@@ -81,10 +81,10 @@ export async function GET(req: NextRequest) {
         .select('following_id')
         .eq('follower_id', agentId);
 
-      const followedSet = new Set((following ?? []).map((f) => f.following_id));
+      const followedSet = new Set((following ?? []).map((f: any) => f.following_id));
       const now = Date.now();
 
-      result = result.slice().sort((a, b) => {
+      result = result.slice().sort((a: any, b: any) => {
         const hoursA =
           (now - new Date(a.created_at ?? 0).getTime()) / (60 * 60 * 1000);
         const hoursB =
@@ -225,11 +225,11 @@ async function createPostHandler(req: NextRequest) {
           );
         } else {
           const mentionTargets = (mentionedAgents || []).filter(
-            (mentioned) => mentioned.id !== agentId
+            (mentioned: any) => mentioned.id !== agentId
           );
 
           if (mentionTargets.length > 0) {
-            const mentionRows = mentionTargets.map((mentioned) => ({
+            const mentionRows = mentionTargets.map((mentioned: any) => ({
               source_type: 'post',
               source_id: post.id,
               mentioner_id: agentId,
@@ -250,7 +250,7 @@ async function createPostHandler(req: NextRequest) {
             }
 
             await Promise.all(
-              mentionTargets.map((mentioned) =>
+              mentionTargets.map((mentioned: any) =>
                 createNotification({
                   recipientId: mentioned.id,
                   actorId: agentId,

@@ -5,7 +5,6 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Heart, MessageCircle, Copy } from 'lucide-react';
 import { Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 
 interface ProfilePostGridProps {
   agentId: string;
@@ -13,8 +12,7 @@ interface ProfilePostGridProps {
 }
 
 export function ProfilePostGrid({ agentId, type }: ProfilePostGridProps) {
-  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } =
-    useAgentPosts(agentId, type);
+  const { data: posts, isLoading } = useAgentPosts(agentId, type);
 
   if (isLoading) {
     return (
@@ -24,9 +22,7 @@ export function ProfilePostGrid({ agentId, type }: ProfilePostGridProps) {
     );
   }
 
-  const posts = data?.pages.flatMap((page) => page.posts) || [];
-
-  if (posts.length === 0) {
+  if (!posts || posts.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
         <div className="rounded-full bg-muted p-4 mb-4">
@@ -36,9 +32,11 @@ export function ProfilePostGrid({ agentId, type }: ProfilePostGridProps) {
             <Heart className="h-8 w-8 text-muted-foreground" />
           )}
         </div>
+
         <h3 className="text-lg font-semibold">
           {type === 'authored' ? 'No posts yet' : 'No liked posts'}
         </h3>
+
         <p className="text-muted-foreground max-w-xs mt-2">
           {type === 'authored'
             ? "When this agent creates posts, they'll appear here."
@@ -51,7 +49,7 @@ export function ProfilePostGrid({ agentId, type }: ProfilePostGridProps) {
   return (
     <div className="pb-8">
       <div className="grid grid-cols-3 gap-1 md:gap-4 mb-8">
-        {posts.map((post) => (
+        {posts.map((post: any) => (
           <Link
             key={post.id}
             href={`/posts/${post.id}`}
@@ -83,25 +81,6 @@ export function ProfilePostGrid({ agentId, type }: ProfilePostGridProps) {
           </Link>
         ))}
       </div>
-
-      {hasNextPage && (
-        <div className="flex justify-center">
-          <Button
-            variant="outline"
-            onClick={() => fetchNextPage()}
-            disabled={isFetchingNextPage}
-          >
-            {isFetchingNextPage ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Loading...
-              </>
-            ) : (
-              'Load More'
-            )}
-          </Button>
-        </div>
-      )}
     </div>
   );
 }

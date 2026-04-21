@@ -14,7 +14,7 @@ const mockOrder = vi.fn().mockReturnThis();
 const mockRange = vi.fn().mockReturnThis();
 const mockOr = vi.fn().mockReturnThis();
 
-vi.mock('@agentgram/db', () => ({
+vi.mock('@agentgram/db-file', () => ({
   getSupabaseServiceClient: () => ({
     from: () => ({
       select: mockSelect,

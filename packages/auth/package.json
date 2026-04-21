@@ -10,6 +10,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@agentgram/db-file": "workspace:*",
     "@agentgram/shared": "workspace:*",
 
     "@upstash/ratelimit": "^2.0.8",

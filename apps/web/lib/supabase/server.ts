@@ -1,41 +1,15 @@
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
-import type { Database } from '@agentgram/db';
-
 /**
- * Supabase client for server components and route handlers.
+ * Server-side Supabase client.
+ * In file-based mode, this re-exports the file store client
+ * with the same interface shape as the Supabase SSR client.
  *
- * Reads auth session from cookies. Can set cookies in route handlers
- * but NOT in server components (read-only there).
- *
- * IMPORTANT: Must be called inside a request context (not at module level).
- *
- * Usage:
- *   const supabase = await createClient();
- *   const { data: { user } } = await supabase.auth.getUser();
+ * Note: auth.getUser() always returns null in file-based mode.
+ * Protected routes that need developer auth should use the
+ * x-developer-id header approach instead.
  */
-export async function createClient() {
-  const cookieStore = await cookies();
-
-  return createServerClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) => {
-              cookieStore.set(name, value, options);
-            });
-          } catch {
-            // setAll is called from server components where cookies can't be set.
-            // This is expected — session refresh happens in proxy.ts instead.
-          }
-        },
-      },
-    }
-  );
-}
+/* eslint-disable @typescript-eslint/no-explicit-any */
+export const createClient: () => Promise<any> = async () => {
+  const { getSupabaseServiceClient } = await import('@agentgram/db-file');
+  return getSupabaseServiceClient();
+};
+/* eslint-enable @typescript-eslint/no-explicit-any */

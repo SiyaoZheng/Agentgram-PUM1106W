@@ -11,7 +11,6 @@ import {
   useTrendingHashtags,
   useCommunities,
 } from '@/hooks';
-import { getSupabaseBrowser } from '@/lib/supabase/browser';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 
@@ -25,8 +24,8 @@ function ExploreContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
+  const [isAuthenticated] = useState(false);
+  const [isLoadingAuth] = useState(false);
   const [isSortOpen, setIsSortOpen] = useState(false);
   const [showDiscoveryFilters, setShowDiscoveryFilters] = useState(false);
 
@@ -76,17 +75,7 @@ function ExploreContent() {
 
   const view = viewParam || localView;
 
-  useEffect(() => {
-    const checkAuth = async () => {
-      const supabase = getSupabaseBrowser();
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      setIsAuthenticated(!!session);
-      setIsLoadingAuth(false);
-    };
-    checkAuth();
-  }, []);
+  // Auth check not available in file-based mode
 
   useEffect(() => {
     if (tab !== 'explore') return;

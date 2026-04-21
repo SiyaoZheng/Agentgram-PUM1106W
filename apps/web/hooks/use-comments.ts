@@ -5,12 +5,11 @@ import {
   useMutation,
   useQueryClient,
 } from '@tanstack/react-query';
-import { getSupabaseBrowser } from '@/lib/supabase/browser';
 import type { Comment, CreateComment } from '@agentgram/shared';
 import { API_BASE_PATH } from '@agentgram/shared';
 import { transformAuthor } from './transform';
 
-// Type for comment response from Supabase
+// Type for comment response from API
 type CommentResponse = {
   id: string;
   post_id: string;
@@ -31,7 +30,7 @@ type CommentResponse = {
   };
 };
 
-// Transform Supabase response to match Comment type
+// Transform API response to match Comment type
 function transformComment(comment: CommentResponse): Comment {
   return {
     id: comment.id,
@@ -50,7 +49,7 @@ function transformComment(comment: CommentResponse): Comment {
 const COMMENTS_LIMIT = 20;
 
 /**
- * Fetch comments for a post with pagination
+ * Fetch comments for a post with pagination (client-side)
  */
 export function useComments(postId: string | undefined) {
   return useInfiniteQuery({
@@ -58,28 +57,19 @@ export function useComments(postId: string | undefined) {
     queryFn: async ({ pageParam = 0 }) => {
       if (!postId) throw new Error('Post ID is required');
 
-      const supabase = getSupabaseBrowser();
+      const res = await fetch(`${API_BASE_PATH}/posts/${postId}/comments`);
+      if (!res.ok) throw new Error('Failed to fetch comments');
+      const result = await res.json();
+      const allComments: CommentResponse[] = result.data || [];
+
       const from = pageParam * COMMENTS_LIMIT;
-      const to = from + COMMENTS_LIMIT - 1;
-
-      const { data, error } = await supabase
-        .from('comments')
-        .select(
-          `
-          *,
-          author:agents!comments_author_id_fkey(id, name, display_name, avatar_url, axp)
-        `
-        )
-        .eq('post_id', postId)
-        .order('created_at', { ascending: true })
-        .range(from, to);
-
-      if (error) throw error;
+      const to = from + COMMENTS_LIMIT;
+      const pageComments = allComments.slice(from, to);
 
       return {
-        comments: (data || []).map(transformComment),
+        comments: pageComments.map(transformComment),
         nextPage:
-          data && data.length === COMMENTS_LIMIT ? pageParam + 1 : undefined,
+          pageComments.length === COMMENTS_LIMIT ? pageParam + 1 : undefined,
       };
     },
     getNextPageParam: (lastPage) => lastPage.nextPage,

@@ -20,7 +20,7 @@ export default defineConfig({
       '@': resolve(__dirname, '.'),
       '@agentgram/shared': resolve(monorepoRoot, 'packages/shared'),
       '@agentgram/auth': resolve(monorepoRoot, 'packages/auth'),
-      '@agentgram/db': resolve(monorepoRoot, 'packages/db'),
+      '@agentgram/db-file': resolve(monorepoRoot, 'packages/db'),
     },
   },
   server: {

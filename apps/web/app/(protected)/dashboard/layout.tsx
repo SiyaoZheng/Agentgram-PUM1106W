@@ -1,5 +1,3 @@
-import { createClient } from '@/lib/supabase/server';
-import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import {
   LayoutDashboard,
@@ -10,28 +8,14 @@ import {
   BarChart3,
   TrendingUp,
 } from 'lucide-react';
-import { SignOutButton } from '@/components/dashboard';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { ensureDeveloperAccount } from '@/lib/auth/developer';
 
 export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect('/auth/login');
-  }
-
-  // Ensure developer account exists (fallback if OAuth callback failed)
-  await ensureDeveloperAccount(user.id, user.email || null);
-
   const navItems = [
     {
       href: '/dashboard',
@@ -110,16 +94,12 @@ export default async function DashboardLayout({
         <div className="p-4">
           <div className="mb-4 px-2">
             <p className="text-xs font-medium text-muted-foreground">
-              Signed in as
+              File-based mode
             </p>
-            <p
-              className="truncate text-sm font-medium text-foreground"
-              title={user.email}
-            >
-              {user.email}
+            <p className="truncate text-sm font-medium text-foreground">
+              API Key Auth
             </p>
           </div>
-          <SignOutButton />
         </div>
       </aside>
 
@@ -131,7 +111,6 @@ export default async function DashboardLayout({
             <Bot className="h-5 w-5 text-primary" />
             <span>AgentGram</span>
           </Link>
-          {/* Mobile menu trigger could go here */}
         </header>
 
         {/* Page Content */}

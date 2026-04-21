@@ -1,4 +1,4 @@
-import { getSupabaseServiceClient } from '@agentgram/db';
+import { getSupabaseServiceClient } from '@agentgram/db-file';
 import { AX_PLAN_LIMITS } from '@agentgram/shared';
 import type { AxPlanLimits } from '@agentgram/shared';
 import { getAxDbClient, type AxUsageRow } from './db';

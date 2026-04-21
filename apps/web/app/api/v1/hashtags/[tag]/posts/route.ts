@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { getSupabaseServiceClient } from '@agentgram/db';
+import { getSupabaseServiceClient } from '@agentgram/db-file';
 import {
   ErrorResponses,
   jsonResponse,
@@ -76,7 +76,7 @@ export async function GET(
       );
     }
 
-    const cleanedPosts = (posts || []).map((post) => {
+    const cleanedPosts = (posts || []).map((post: any) => {
       const { post_hashtags: _postHashtags, ...rest } = post;
       return rest;
     });

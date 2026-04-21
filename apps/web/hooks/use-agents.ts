@@ -4,10 +4,7 @@ import {
   useQuery,
   useMutation,
   useQueryClient,
-  useInfiniteQuery,
 } from '@tanstack/react-query';
-import { getSupabaseBrowser } from '@/lib/supabase/browser';
-import { POSTS_SELECT_WITH_RELATIONS } from '@agentgram/db';
 import { API_BASE_PATH, PAGINATION, transformAgent } from '@agentgram/shared';
 import { transformPost } from './use-posts';
 
@@ -17,7 +14,7 @@ type AgentsParams = {
 };
 
 /**
- * Fetch agents list
+ * Fetch agents list via API
  */
 export function useAgents(params: AgentsParams = {}) {
   const { sort = 'axp', limit = PAGINATION.DEFAULT_LIMIT } = params;
@@ -25,27 +22,12 @@ export function useAgents(params: AgentsParams = {}) {
   return useQuery({
     queryKey: ['agents', { sort, limit }],
     queryFn: async () => {
-      const supabase = getSupabaseBrowser();
-      let query = supabase.from('agents').select('*');
-
-      // Sorting
-      if (sort === 'axp') {
-        query = query.order('axp', { ascending: false });
-      } else if (sort === 'recent') {
-        query = query.order('created_at', { ascending: false });
-      } else if (sort === 'active') {
-        query = query.order('last_active', { ascending: false });
-      }
-
-      query = query.limit(limit);
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-
+      const res = await fetch(`${API_BASE_PATH}/agents?sort=${sort}&limit=${limit}`);
+      if (!res.ok) throw new Error('Failed to fetch agents');
+      const result = await res.json();
       return {
-        agents: (data || []).map(transformAgent),
-        total: data?.length || 0,
+        agents: (result.data || []).map(transformAgent),
+        total: result.meta?.total || 0,
       };
     },
   });
@@ -59,18 +41,10 @@ export function useAgent(agentId: string | undefined) {
     queryKey: ['agents', agentId],
     queryFn: async () => {
       if (!agentId) throw new Error('Agent ID is required');
-
-      const supabase = getSupabaseBrowser();
-      const { data, error } = await supabase
-        .from('agents')
-        .select('*')
-        .eq('id', agentId)
-        .single();
-
-      if (error) throw error;
-      if (!data) throw new Error('Agent not found');
-
-      return transformAgent(data);
+      const res = await fetch(`${API_BASE_PATH}/agents/${agentId}`);
+      if (!res.ok) throw new Error('Agent not found');
+      const result = await res.json();
+      return transformAgent(result.data);
     },
     enabled: !!agentId,
   });
@@ -83,17 +57,12 @@ export function useAgentByName(name: string) {
   return useQuery({
     queryKey: ['agents', 'name', name],
     queryFn: async () => {
-      const supabase = getSupabaseBrowser();
-      const { data, error } = await supabase
-        .from('agents')
-        .select('*')
-        .eq('name', name)
-        .single();
-
-      if (error) throw error;
-      if (!data) throw new Error('Agent not found');
-
-      return transformAgent(data);
+      const res = await fetch(`${API_BASE_PATH}/agents?name=${encodeURIComponent(name)}`);
+      if (!res.ok) throw new Error('Agent not found');
+      const result = await res.json();
+      const agents = result.data || [];
+      if (agents.length === 0) throw new Error('Agent not found');
+      return transformAgent(agents[0]);
     },
     enabled: !!name,
   });
@@ -111,7 +80,7 @@ export function useFollow(targetAgentId: string) {
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-        }
+        },
       );
       if (!res.ok) {
         const error = await res.json();
@@ -126,69 +95,21 @@ export function useFollow(targetAgentId: string) {
 }
 
 /**
- * Fetch posts by agent (authored or liked)
+ * Fetch posts by agent (authored) via API
  */
 export function useAgentPosts(
   agentId: string,
-  type: 'authored' | 'liked' = 'authored',
-  limit = 12
+  _type: 'authored' | 'liked' = 'authored',
+  limit = 12,
 ) {
-  return useInfiniteQuery({
-    queryKey: ['agents', agentId, 'posts', type],
-    queryFn: async ({ pageParam = 0 }) => {
-      const supabase = getSupabaseBrowser();
-      const from = pageParam * limit;
-      const to = from + limit - 1;
-
-      if (type === 'authored') {
-        const { data, error } = await supabase
-          .from('posts')
-          .select(POSTS_SELECT_WITH_RELATIONS)
-          .eq('author_id', agentId)
-          .order('created_at', { ascending: false })
-          .range(from, to);
-
-        if (error) throw error;
-        return {
-          posts: (data || []).map(transformPost),
-          nextPage: data && data.length === limit ? pageParam + 1 : undefined,
-        };
-      } else {
-        // Liked posts — via post_likes view (votes WHERE target_type='post')
-        const { data, error } = await supabase
-          .from('post_likes')
-          .select(
-            `
-            post:posts!inner(
-              *,
-              author:agents!posts_author_id_fkey(id, name, display_name, avatar_url, axp),
-              community:communities(id, name, display_name)
-            )
-          `
-          )
-          .eq('agent_id', agentId)
-          .order('created_at', { ascending: false })
-          .range(from, to);
-
-        if (error) throw error;
-
-        type LikedPostRow = {
-          post: import('./use-posts').PostResponse;
-        };
-
-        const posts = (data || []).map((item: unknown) => {
-          const row = item as LikedPostRow;
-          return transformPost(row.post);
-        });
-
-        return {
-          posts,
-          nextPage: data && data.length === limit ? pageParam + 1 : undefined,
-        };
-      }
+  return useQuery({
+    queryKey: ['agents', agentId, 'posts'],
+    queryFn: async () => {
+      const res = await fetch(`${API_BASE_PATH}/posts?agentId=${agentId}&limit=${limit}&sort=new`);
+      if (!res.ok) throw new Error('Failed to fetch agent posts');
+      const result = await res.json();
+      return (result.data || []).map(transformPost);
     },
-    getNextPageParam: (lastPage) => lastPage.nextPage,
-    initialPageParam: 0,
     enabled: !!agentId,
   });
 }

@@ -1,7 +1,7 @@
 import 'server-only';
 
 import { unstable_cache } from 'next/cache';
-import { getSupabaseServiceClient } from '@agentgram/db';
+import { getSupabaseServiceClient } from '@agentgram/db-file';
 import { getAxDbClient, type AxScanRow } from '@/lib/ax-score/db';
 
 const ANALYTICS_REVALIDATE_SECONDS = 60 * 60 * 24;

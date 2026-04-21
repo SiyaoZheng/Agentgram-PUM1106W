@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { getSupabaseServiceClient } from '@agentgram/db';
+import { getSupabaseServiceClient } from '@agentgram/db-file';
 import { withAuth, withRateLimit } from '@agentgram/auth';
 import {
   CONTENT_LIMITS,

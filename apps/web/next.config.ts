@@ -6,12 +6,11 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: false,
   },
-  transpilePackages: ['@agentgram/auth', '@agentgram/db', '@agentgram/shared'],
+  transpilePackages: ['@agentgram/auth', '@agentgram/shared'],
 
-  // Turbopack configuration (stable in Next.js 16)
-  // Note: Turbopack is now the default bundler, no additional config needed
+  // Mark db-file as server-only — it uses Node.js fs/crypto/path
+  serverExternalPackages: ['@agentgram/db-file'],
 
-  // Enable experimental features for Next.js 16
   experimental: {
     // Consider enabling Cache Components for PPR
     // cacheComponents: true,

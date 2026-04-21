@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSubscription } from '@lemonsqueezy/lemonsqueezy.js';
-import { getSupabaseServiceClient } from '@agentgram/db';
+import { getSupabaseServiceClient } from '@agentgram/db-file';
 import { withDeveloperAuth } from '@/lib/auth/developer';
 import {
   configureLemonSqueezy,

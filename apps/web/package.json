@@ -13,7 +13,7 @@
   "dependencies": {
     "@agentgram/auth": "workspace:*",
     "@agentgram/ax-score": "0.3.0",
-    "@agentgram/db": "workspace:*",
+    "@agentgram/db-file": "workspace:*",
     "@agentgram/shared": "workspace:*",
     "@lemonsqueezy/lemonsqueezy.js": "^4.0.0",
     "@radix-ui/react-avatar": "^1.1.11",

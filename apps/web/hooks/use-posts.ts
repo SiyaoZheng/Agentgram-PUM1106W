@@ -6,8 +6,6 @@ import {
   useQueryClient,
   useInfiniteQuery,
 } from '@tanstack/react-query';
-import { getSupabaseBrowser } from '@/lib/supabase/browser';
-import { POSTS_SELECT_WITH_RELATIONS } from '@agentgram/db';
 import type {
   Post,
   CreatePost,
@@ -16,7 +14,7 @@ import type {
 import { API_BASE_PATH, PAGINATION } from '@agentgram/shared';
 import { transformAuthor } from './transform';
 
-// Type for the post response from Supabase
+// Type for the post response from API
 export type PostResponse = {
   id: string;
   author_id: string;
@@ -46,7 +44,7 @@ export type PostResponse = {
   };
 };
 
-// Transform Supabase response to match Post type
+// Transform API response to match Post type
 export function transformPost(post: PostResponse): Post {
   return {
     id: post.id,
@@ -104,128 +102,25 @@ export function usePostsFeed(params: FeedParams = {}) {
     queryKey: ['posts', 'feed', { sort, communityId, tag, agentId, scope }],
     enabled,
     queryFn: async ({ pageParam = 0 }) => {
-      const supabase = getSupabaseBrowser();
-      let query = supabase.from('posts').select(POSTS_SELECT_WITH_RELATIONS);
+      const page = pageParam + 1;
+      const searchParams = new URLSearchParams({
+        sort,
+        page: String(page),
+        limit: String(limit),
+      });
+      if (communityId) searchParams.set('communityId', communityId);
+      if (agentId) searchParams.set('agentId', agentId);
+      if (scope === 'following') searchParams.set('personalized', 'true');
 
-      if (communityId) {
-        query = query.eq('community_id', communityId);
-      }
+      const res = await fetch(`${API_BASE_PATH}/posts?${searchParams}`);
+      if (!res.ok) throw new Error('Failed to fetch posts');
 
-      if (tag) {
-        // Tag filtering
-      }
-
-      if (agentId) {
-        query = query.eq('author_id', agentId);
-      }
-
-      if (scope === 'following') {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-
-        if (!user) {
-          return { posts: [], nextPage: undefined };
-        }
-
-        // Use server-side RPC for efficient following feed
-        const from = pageParam * limit;
-        type FollowingFeedRow = {
-          id: string;
-          author_id: string;
-          community_id: string | null;
-          title: string;
-          content: string | null;
-          url: string | null;
-          post_type: 'text' | 'link' | 'media';
-          likes: number;
-          comment_count: number;
-          score: number;
-          metadata: Record<string, unknown>;
-          created_at: string;
-          updated_at: string;
-          author_name: string;
-          author_display_name: string | null;
-          author_avatar_url: string | null;
-          author_axp: number;
-          author_trust_score: number | null;
-          community_name: string | null;
-          community_display_name: string | null;
-        };
-
-        type FollowingFeedRpcArgs = {
-          p_follower_id: string;
-          p_limit: number;
-          p_offset: number;
-        };
-
-        const rpcParams = {
-          p_follower_id: user.id,
-          p_limit: limit,
-          p_offset: from,
-        } satisfies FollowingFeedRpcArgs;
-
-        const { data: rpcData, error: rpcError } = await (
-          supabase as unknown as {
-            rpc: (
-              fn: string,
-              params: FollowingFeedRpcArgs
-            ) => Promise<{ data: FollowingFeedRow[] | null; error: unknown }>;
-          }
-        ).rpc('get_following_feed', rpcParams);
-
-        if (rpcError) throw rpcError;
-
-        const posts = (rpcData || []).map((row: FollowingFeedRow) =>
-          transformPost({
-            ...row,
-            author: {
-              id: row.author_id,
-              name: row.author_name,
-              display_name: row.author_display_name,
-              avatar_url: row.author_avatar_url,
-              axp: row.author_axp,
-              trust_score: row.author_trust_score,
-            },
-            community: row.community_name
-              ? {
-                  id: row.community_id || '',
-                  name: row.community_name,
-                  display_name: row.community_display_name,
-                }
-              : undefined,
-          })
-        );
-
-        return {
-          posts,
-          nextPage:
-            rpcData && rpcData.length === limit ? pageParam + 1 : undefined,
-        };
-      }
-
-      // Sorting
-      if (sort === 'new') {
-        query = query.order('created_at', { ascending: false });
-      } else if (sort === 'top') {
-        query = query.order('likes', { ascending: false });
-      } else {
-        // hot (default)
-        query = query.order('score', { ascending: false });
-      }
-
-      // Pagination
-      const from = pageParam * limit;
-      const to = from + limit - 1;
-      query = query.range(from, to);
-
-      const { data, error } = await query;
-
-      if (error) throw error;
+      const result = await res.json();
+      const posts = (result.data || []).map(transformPost);
 
       return {
-        posts: (data || []).map(transformPost),
-        nextPage: data && data.length === limit ? pageParam + 1 : undefined,
+        posts,
+        nextPage: result.meta?.page < Math.ceil((result.meta?.total || 0) / limit) ? pageParam + 1 : undefined,
       };
     },
     getNextPageParam: (lastPage) => lastPage.nextPage,
@@ -242,17 +137,11 @@ export function usePost(postId: string | undefined) {
     queryFn: async () => {
       if (!postId) throw new Error('Post ID is required');
 
-      const supabase = getSupabaseBrowser();
-      const { data, error } = await supabase
-        .from('posts')
-        .select(POSTS_SELECT_WITH_RELATIONS)
-        .eq('id', postId)
-        .single();
+      const res = await fetch(`${API_BASE_PATH}/posts/${postId}`);
+      if (!res.ok) throw new Error('Post not found');
 
-      if (error) throw error;
-      if (!data) throw new Error('Post not found');
-
-      return transformPost(data);
+      const result = await res.json();
+      return transformPost(result.data);
     },
     enabled: !!postId,
   });
@@ -281,10 +170,7 @@ export function useCreatePost() {
       return result.data;
     },
     onSuccess: (newPost) => {
-      // Invalidate and refetch posts feed
       queryClient.invalidateQueries({ queryKey: ['posts', 'feed'] });
-
-      // Optimistically add to cache
       queryClient.setQueryData(['posts', newPost.id], newPost);
     },
   });
@@ -333,3 +219,5 @@ export function useLike(postId: string) {
     },
   });
 }
+
+// Re-export for compatibility

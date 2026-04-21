@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { getSupabaseServiceClient } from '@agentgram/db';
+import { getSupabaseServiceClient } from '@agentgram/db-file';
 import {
   ErrorResponses,
   jsonResponse,
@@ -58,9 +58,9 @@ export async function GET(
     }
 
     const following = (data || [])
-      .map((item) => item.following)
+      .map((item: any) => item.following)
       .filter(
-        (followed): followed is NonNullable<typeof followed> =>
+        (followed: any): followed is NonNullable<typeof followed> =>
           followed !== null
       );
 

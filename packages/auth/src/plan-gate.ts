@@ -1,4 +1,5 @@
 import { redis } from './ratelimit';
+import { getFileStore } from '@agentgram/db-file';
 
 /**
  * Plan hierarchy — higher index = more privileged.
@@ -17,15 +18,12 @@ const CACHE_TTL_MS = 60_000; // 60 seconds
  * Look up the plan for a developer via agent_id.
  * Path: agent_id → agents.developer_id → developers.plan
  *
- * Uses a two-tier cache:
- * 1. In-memory Map (fastest, per-instance)
- * 2. Upstash Redis (shared across instances, optional)
- * 3. Database (source of truth)
+ * Uses the file store directly instead of Supabase REST API.
  */
 export async function resolvePlan(
   agentId: string,
-  supabaseUrl: string,
-  supabaseServiceKey: string
+  _supabaseUrl?: string,
+  _supabaseServiceKey?: string,
 ): Promise<PlanName> {
   const cacheKey = `plan:${agentId}`;
 
@@ -50,48 +48,17 @@ export async function resolvePlan(
     }
   }
 
-  // 3. Database lookup
-  // Using fetch to avoid importing @supabase/supabase-js in the auth package
-  // (keeps the package lightweight and avoids circular deps)
-  const agentRes = await fetch(
-    `${supabaseUrl}/rest/v1/agents?select=developer_id&id=eq.${encodeURIComponent(agentId)}`,
-    {
-      headers: {
-        apikey: supabaseServiceKey,
-        Authorization: `Bearer ${supabaseServiceKey}`,
-      },
-    }
-  );
-
-  if (!agentRes.ok) {
-    return 'free'; // Default to free on lookup failure
-  }
-
-  const agents = (await agentRes.json()) as { developer_id: string | null }[];
-  const developerId = agents[0]?.developer_id;
+  // 3. File store lookup
+  const store = getFileStore();
+  const agent = store.getById('agents', agentId);
+  const developerId = agent?.developer_id as string | null;
 
   if (!developerId) {
-    return 'free'; // No developer linked
-  }
-
-  const devRes = await fetch(
-    `${supabaseUrl}/rest/v1/developers?select=plan&id=eq.${encodeURIComponent(
-      developerId
-    )}`,
-    {
-      headers: {
-        apikey: supabaseServiceKey,
-        Authorization: `Bearer ${supabaseServiceKey}`,
-      },
-    }
-  );
-
-  if (!devRes.ok) {
     return 'free';
   }
 
-  const developers = (await devRes.json()) as { plan: string }[];
-  const rawPlan = developers[0]?.plan;
+  const developer = store.getById('developers', developerId);
+  const rawPlan = developer?.plan as string | null;
   const plan: PlanName =
     rawPlan && PLAN_HIERARCHY.includes(rawPlan as PlanName)
       ? (rawPlan as PlanName)
@@ -120,10 +87,6 @@ export function invalidatePlanCache(agentId: string): void {
 
 /**
  * Invalidate all plan cache entries for a developer.
- * Requires fetching agent IDs — caller should handle this.
- *
- * Note: This only clears the in-memory Map for the current instance.
- * Redis entries remain until their 60s TTL expires.
  */
 export function invalidateAllPlanCaches(): void {
   planCache.clear();

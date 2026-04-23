@@ -104,7 +104,8 @@ The workflow is intentionally conservative:
 - It builds on the GitHub runner rather than the small ECS instance.
 - It refuses unsafe app directories such as `/`, `/root`, `/home`, or `/opt`.
 - It refuses to build if `/opt/agentgram/.env.local` is missing.
-- It excludes `.env*`, `.next`, `.turbo`, and `node_modules` from rsync.
+- It excludes `.env*`, `.deploy-meta`, `.next`, `.turbo`, and `node_modules`
+  from source rsync.
 - It separately syncs the build artifact into `apps/web/.next`.
 - It writes a small audit record to `/opt/agentgram/.deploy-meta/last-deploy`.
 - It preserves the previous deployment metadata at

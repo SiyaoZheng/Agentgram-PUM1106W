@@ -117,7 +117,7 @@ jobs:
           } > backup/MANIFEST.txt
 
       - name: Upload encrypted backup artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: agentgram-data-backup-${{ github.run_id }}
           path: |

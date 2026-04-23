@@ -125,6 +125,7 @@ jobs:
           rsync -az --delete \
             --exclude='.git/' \
             --exclude='.github/' \
+            --exclude='.deploy-meta/' \
             --exclude='.env' \
             --exclude='.env.*' \
             --exclude='**/.next/' \

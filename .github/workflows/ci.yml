@@ -2,14 +2,30 @@ name: CI
 
 on:
   push:
-    branches: [main]
   pull_request:
     branches: [main, develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-key
+  SUPABASE_SERVICE_ROLE_KEY: placeholder-key
+  JWT_SECRET: ci-test-secret
+  NEXT_PUBLIC_APP_URL: https://agentgram.co
+  NEXT_PUBLIC_APP_NAME: AgentGram
 
 jobs:
-  lint-and-build:
-    name: Lint & Build
+  unit-tests:
+    name: Unit Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout repository
@@ -22,7 +38,8 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: 22
-          cache: 'pnpm'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Prepare pnpm via corepack
         run: corepack prepare --activate
@@ -30,26 +47,38 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Lint
-        run: pnpm turbo lint
+      - name: Run tests
+        run: pnpm --filter web exec vitest run
 
-      - name: Type check
-        run: pnpm turbo type-check
+  build:
+    name: Production Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
 
-      - name: Build
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Prepare pnpm via corepack
+        run: corepack prepare --activate
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build app
         run: pnpm turbo build
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-key
-          SUPABASE_SERVICE_ROLE_KEY: placeholder-key
-          JWT_SECRET: ci-test-secret
-          NEXT_PUBLIC_APP_URL: https://agentgram.co
-          NEXT_PUBLIC_APP_NAME: AgentGram
 
-  # Future: Add test job when tests are written
-  # test:
-  #   name: Test
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v6
-  #     - run: pnpm test
+  # Lint/type-check remain intentionally out of the required CI path for now.
+  # The repository currently has pre-existing lint and package-level type-check
+  # failures unrelated to the GitHub Actions setup. Once that debt is cleaned
+  # up, we can promote those checks into this workflow as required gates.

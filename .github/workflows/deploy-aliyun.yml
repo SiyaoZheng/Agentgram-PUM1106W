@@ -1,0 +1,119 @@
+name: Deploy to Aliyun
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-aliyun-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy Production
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    environment:
+      name: production
+      url: ${{ vars.ALIYUN_HEALTHCHECK_URL }}
+    env:
+      TARGET_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+      ALIYUN_HOST: ${{ secrets.ALIYUN_HOST }}
+      ALIYUN_PORT: ${{ secrets.ALIYUN_PORT }}
+      ALIYUN_USER: ${{ secrets.ALIYUN_USER }}
+      ALIYUN_APP_DIR: ${{ secrets.ALIYUN_APP_DIR }}
+      ALIYUN_PM2_NAME: ${{ secrets.ALIYUN_PM2_NAME || 'agentgram' }}
+      ALIYUN_HEALTHCHECK_URL: ${{ secrets.ALIYUN_HEALTHCHECK_URL || vars.ALIYUN_HEALTHCHECK_URL }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Validate required secrets
+        run: |
+          set -euo pipefail
+
+          for name in ALIYUN_HOST ALIYUN_USER ALIYUN_APP_DIR; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::Missing required secret: $name"
+              exit 1
+            fi
+          done
+
+      - name: Prepare SSH key and known_hosts
+        env:
+          ALIYUN_SSH_PRIVATE_KEY: ${{ secrets.ALIYUN_SSH_PRIVATE_KEY }}
+          ALIYUN_KNOWN_HOSTS: ${{ secrets.ALIYUN_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${ALIYUN_SSH_PRIVATE_KEY:-}" ]; then
+            echo "::error::Missing required secret: ALIYUN_SSH_PRIVATE_KEY"
+            exit 1
+          fi
+
+          if [ -z "${ALIYUN_KNOWN_HOSTS:-}" ]; then
+            echo "::error::Missing required secret: ALIYUN_KNOWN_HOSTS"
+            exit 1
+          fi
+
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$ALIYUN_SSH_PRIVATE_KEY" > ~/.ssh/aliyun_deploy_key
+          chmod 600 ~/.ssh/aliyun_deploy_key
+          printf '%s\n' "$ALIYUN_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Install rsync
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y rsync
+
+      - name: Sync source to Aliyun host
+        run: |
+          set -euo pipefail
+
+          SSH_PORT="${ALIYUN_PORT:-22}"
+          SSH_TARGET="${ALIYUN_USER}@${ALIYUN_HOST}"
+
+          rsync -az --delete \
+            --exclude='.git/' \
+            --exclude='.github/' \
+            --exclude='.env' \
+            --exclude='.env.*' \
+            --exclude='**/.next/' \
+            --exclude='**/.turbo/' \
+            --exclude='**/node_modules/' \
+            --exclude='apps/web/data/' \
+            -e "ssh -i ~/.ssh/aliyun_deploy_key -p ${SSH_PORT}" \
+            ./ "${SSH_TARGET}:${ALIYUN_APP_DIR}/"
+
+      - name: Build and reload on Aliyun host
+        run: |
+          set -euo pipefail
+
+          SSH_PORT="${ALIYUN_PORT:-22}"
+
+          ssh -i ~/.ssh/aliyun_deploy_key -p "$SSH_PORT" "${ALIYUN_USER}@${ALIYUN_HOST}" \
+            "TARGET_SHA='$TARGET_SHA' ALIYUN_APP_DIR='$ALIYUN_APP_DIR' ALIYUN_PM2_NAME='$ALIYUN_PM2_NAME' bash -s" \
+            < ./scripts/deploy-aliyun-remote.sh
+
+      - name: Verify health endpoint
+        if: env.ALIYUN_HEALTHCHECK_URL != ''
+        run: |
+          set -euo pipefail
+          curl --fail --show-error --silent \
+            --retry 10 \
+            --retry-delay 5 \
+            --retry-connrefused \
+            "$ALIYUN_HEALTHCHECK_URL/api/v1/health"

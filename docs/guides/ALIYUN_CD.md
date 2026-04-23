@@ -34,26 +34,25 @@ It performs these steps:
 
 1. Checks out the exact commit that passed CI.
 2. Connects to the Aliyun host over SSH.
-3. Rsyncs repository source into the existing app directory.
-4. Preserves server-only files such as `.env.local` and `node_modules`.
-5. Runs `pnpm install --frozen-lockfile` on the server.
-6. Builds the app on the server so production `.env.local` is available.
-7. Reloads the PM2 process named `agentgram`.
+3. Fetches the server's existing `/opt/agentgram/.env.local` into the GitHub runner.
+4. Installs dependencies and builds the Next.js standalone artifact on GitHub Actions.
+5. Rsyncs repository source into the existing app directory while preserving server data and env files.
+6. Rsyncs the built `.next` artifact and public assets to the server.
+7. Restarts the PM2 process named `agentgram`.
 8. Optionally calls `/api/v1/health` from GitHub Actions.
 
 ## One-Time Server Prerequisites
 
 The current workflow assumes the Aliyun server is already prepared like this:
 
-- Node.js, Corepack, pnpm, and PM2 are installed and available to the SSH user.
+- Node.js and PM2 are installed and available to the SSH user.
 - The production environment file exists at `/opt/agentgram/.env.local`.
 - PM2 can bind the app to port `80`; currently the process runs as `root`.
 - `pm2-root.service` is enabled so PM2 resurrects the saved process list after reboot.
 - The SSH key in GitHub is authorized for `root@39.106.200.218`.
-- A manual `cd /opt/agentgram && pnpm turbo build` works on the server.
 
 This workflow does not provision the server for you. It only syncs source,
-builds, and restarts the already working deployment.
+syncs a GitHub-built artifact, and restarts the already working deployment.
 
 ## Required GitHub Secrets
 
@@ -85,15 +84,17 @@ ssh-keyscan -p 22 39.106.200.218
 The workflow is intentionally conservative:
 
 - It checks out the exact SHA that passed CI.
+- It builds on the GitHub runner rather than the small ECS instance.
 - It refuses unsafe app directories such as `/`, `/root`, `/home`, or `/opt`.
 - It refuses to build if `/opt/agentgram/.env.local` is missing.
 - It excludes `.env*`, `.next`, `.turbo`, and `node_modules` from rsync.
-- It clears stale build artifacts before running a fresh production build.
+- It separately syncs the build artifact into `apps/web/.next`.
 - It writes a small audit record to `/opt/agentgram/.deploy-meta/last-deploy`.
 
 ## Notes
 
-Because this deployment builds on the server, production `NEXT_PUBLIC_*` values
-come from the server's `.env.local`. That avoids duplicating production app
-configuration into GitHub secrets, but it also means the server environment file
-is part of the deployment contract.
+Because this deployment temporarily fetches `.env.local` into the GitHub runner
+before building, production `NEXT_PUBLIC_*` values still come from the server's
+environment file. That avoids duplicating production app configuration into
+GitHub secrets, but it also means the server environment file is part of the
+deployment contract.

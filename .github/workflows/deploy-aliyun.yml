@@ -79,6 +79,37 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y rsync
 
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Prepare pnpm via corepack
+        run: corepack prepare --activate
+
+      - name: Fetch production environment
+        run: |
+          set -euo pipefail
+
+          SSH_PORT="${ALIYUN_PORT:-22}"
+          SSH_TARGET="${ALIYUN_USER}@${ALIYUN_HOST}"
+
+          scp -i ~/.ssh/aliyun_deploy_key -P "$SSH_PORT" \
+            "${SSH_TARGET}:${ALIYUN_APP_DIR}/.env.local" \
+            ./.env.local
+          chmod 600 ./.env.local
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build production artifact
+        run: pnpm turbo build
+
       - name: Sync source to Aliyun host
         run: |
           set -euo pipefail
@@ -98,7 +129,22 @@ jobs:
             -e "ssh -i ~/.ssh/aliyun_deploy_key -p ${SSH_PORT}" \
             ./ "${SSH_TARGET}:${ALIYUN_APP_DIR}/"
 
-      - name: Build and reload on Aliyun host
+      - name: Sync production artifact to Aliyun host
+        run: |
+          set -euo pipefail
+
+          SSH_PORT="${ALIYUN_PORT:-22}"
+          SSH_TARGET="${ALIYUN_USER}@${ALIYUN_HOST}"
+
+          rsync -az --delete \
+            -e "ssh -i ~/.ssh/aliyun_deploy_key -p ${SSH_PORT}" \
+            ./apps/web/.next/ "${SSH_TARGET}:${ALIYUN_APP_DIR}/apps/web/.next/"
+
+          rsync -az --delete \
+            -e "ssh -i ~/.ssh/aliyun_deploy_key -p ${SSH_PORT}" \
+            ./apps/web/public/ "${SSH_TARGET}:${ALIYUN_APP_DIR}/apps/web/public/"
+
+      - name: Reload on Aliyun host
         run: |
           set -euo pipefail
 

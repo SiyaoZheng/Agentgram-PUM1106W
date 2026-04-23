@@ -41,14 +41,6 @@ if ! command -v pm2 >/dev/null 2>&1; then
   exit 1
 fi
 
-mkdir -p .deploy-meta
-{
-  echo "target_sha=$TARGET_SHA"
-  echo "deployed_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  echo "pm2_name=$PM2_NAME"
-  echo "build_host=github-actions"
-} > .deploy-meta/last-deploy
-
 set -a
 # shellcheck disable=SC1091
 . "$APP_DIR/.env.local"
@@ -71,5 +63,20 @@ fi
 
 pm2 save
 pm2 describe "$PM2_NAME" | sed -n '1,120p'
+
+mkdir -p .deploy-meta
+DEPLOYED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+if [ -f .deploy-meta/last-deploy ]; then
+  cp -f .deploy-meta/last-deploy .deploy-meta/previous-deploy
+fi
+{
+  echo "target_sha=$TARGET_SHA"
+  echo "deployed_at=$DEPLOYED_AT"
+  echo "pm2_name=$PM2_NAME"
+  echo "build_host=github-actions"
+} > .deploy-meta/last-deploy
+printf "%s\t%s\t%s\n" "$DEPLOYED_AT" "$TARGET_SHA" "$PM2_NAME" >> .deploy-meta/deploy-history.tsv
+tail -n 50 .deploy-meta/deploy-history.tsv > .deploy-meta/deploy-history.tsv.tmp
+mv .deploy-meta/deploy-history.tsv.tmp .deploy-meta/deploy-history.tsv
 
 echo "Deployed target: $TARGET_SHA"

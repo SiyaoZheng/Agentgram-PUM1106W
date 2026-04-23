@@ -6,6 +6,11 @@ on:
     types: [completed]
     branches: [develop]
   workflow_dispatch:
+    inputs:
+      target_sha:
+        description: "Optional commit SHA to deploy. Leave empty to deploy the current develop HEAD."
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -24,7 +29,7 @@ jobs:
       name: production
       url: ${{ vars.ALIYUN_HEALTHCHECK_URL }}
     env:
-      TARGET_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+      TARGET_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.target_sha || github.event.workflow_run.head_sha || github.sha }}
       ALIYUN_HOST: ${{ secrets.ALIYUN_HOST }}
       ALIYUN_PORT: ${{ secrets.ALIYUN_PORT }}
       ALIYUN_USER: ${{ secrets.ALIYUN_USER }}
@@ -36,7 +41,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.target_sha || github.event.workflow_run.head_sha || github.sha }}
 
       - name: Validate required secrets
         run: |

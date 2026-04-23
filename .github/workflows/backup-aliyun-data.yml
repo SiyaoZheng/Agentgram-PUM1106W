@@ -1,0 +1,127 @@
+name: Backup Aliyun Data
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 02:30 Asia/Shanghai. GitHub Actions schedules use UTC.
+    - cron: "30 18 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backup-aliyun-data-production
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    name: Backup Production Data
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: production
+    env:
+      ALIYUN_HOST: ${{ secrets.ALIYUN_HOST }}
+      ALIYUN_PORT: ${{ secrets.ALIYUN_PORT }}
+      ALIYUN_USER: ${{ secrets.ALIYUN_USER }}
+      ALIYUN_APP_DIR: ${{ secrets.ALIYUN_APP_DIR }}
+      ALIYUN_BACKUP_ROOT: /opt/agentgram-backups
+      ALIYUN_BACKUP_RETENTION_DAYS: "30"
+      ALIYUN_BACKUP_PASSPHRASE: ${{ secrets.ALIYUN_BACKUP_PASSPHRASE }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Validate required secrets
+        run: |
+          set -euo pipefail
+
+          for name in ALIYUN_HOST ALIYUN_USER ALIYUN_APP_DIR ALIYUN_BACKUP_PASSPHRASE; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::Missing required secret: $name"
+              exit 1
+            fi
+          done
+
+      - name: Prepare SSH key and known_hosts
+        env:
+          ALIYUN_SSH_PRIVATE_KEY: ${{ secrets.ALIYUN_SSH_PRIVATE_KEY }}
+          ALIYUN_KNOWN_HOSTS: ${{ secrets.ALIYUN_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${ALIYUN_SSH_PRIVATE_KEY:-}" ]; then
+            echo "::error::Missing required secret: ALIYUN_SSH_PRIVATE_KEY"
+            exit 1
+          fi
+
+          if [ -z "${ALIYUN_KNOWN_HOSTS:-}" ]; then
+            echo "::error::Missing required secret: ALIYUN_KNOWN_HOSTS"
+            exit 1
+          fi
+
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$ALIYUN_SSH_PRIVATE_KEY" > ~/.ssh/aliyun_deploy_key
+          chmod 600 ~/.ssh/aliyun_deploy_key
+          printf '%s\n' "$ALIYUN_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Create server-side backup
+        run: |
+          set -euo pipefail
+
+          SSH_PORT="${ALIYUN_PORT:-22}"
+          SSH_TARGET="${ALIYUN_USER}@${ALIYUN_HOST}"
+
+          ssh -i ~/.ssh/aliyun_deploy_key -p "$SSH_PORT" "$SSH_TARGET" \
+            "ALIYUN_APP_DIR='$ALIYUN_APP_DIR' ALIYUN_BACKUP_ROOT='$ALIYUN_BACKUP_ROOT' ALIYUN_BACKUP_RETENTION_DAYS='$ALIYUN_BACKUP_RETENTION_DAYS' bash -s" \
+            < ./scripts/backup-aliyun-data-remote.sh
+
+      - name: Download latest backup from server
+        run: |
+          set -euo pipefail
+
+          SSH_PORT="${ALIYUN_PORT:-22}"
+          SSH_TARGET="${ALIYUN_USER}@${ALIYUN_HOST}"
+          REMOTE_ARCHIVE="$(ssh -i ~/.ssh/aliyun_deploy_key -p "$SSH_PORT" "$SSH_TARGET" "ls -t '$ALIYUN_BACKUP_ROOT'/data/agentgram-data-*.tar.gz | head -n 1")"
+          BACKUP_NAME="$(basename "$REMOTE_ARCHIVE")"
+
+          mkdir -p backup
+          scp -i ~/.ssh/aliyun_deploy_key -P "$SSH_PORT" "$SSH_TARGET:$REMOTE_ARCHIVE" "backup/$BACKUP_NAME"
+          scp -i ~/.ssh/aliyun_deploy_key -P "$SSH_PORT" "$SSH_TARGET:$REMOTE_ARCHIVE.sha256" "backup/$BACKUP_NAME.sha256"
+
+          echo "REMOTE_ARCHIVE=$REMOTE_ARCHIVE" >> "$GITHUB_ENV"
+          echo "BACKUP_NAME=$BACKUP_NAME" >> "$GITHUB_ENV"
+
+      - name: Verify and encrypt backup
+        run: |
+          set -euo pipefail
+
+          REMOTE_DIGEST="$(cut -d' ' -f1 "backup/$BACKUP_NAME.sha256")"
+          printf '%s  %s\n' "$REMOTE_DIGEST" "backup/$BACKUP_NAME" | sha256sum -c -
+
+          openssl enc -aes-256-cbc -pbkdf2 -salt \
+            -pass env:ALIYUN_BACKUP_PASSPHRASE \
+            -in "backup/$BACKUP_NAME" \
+            -out "backup/$BACKUP_NAME.enc"
+
+          rm -f "backup/$BACKUP_NAME"
+          {
+            echo "backup_name=$BACKUP_NAME"
+            echo "remote_archive=$REMOTE_ARCHIVE"
+            echo "original_sha256=$REMOTE_DIGEST"
+            echo "encrypted_artifact=$BACKUP_NAME.enc"
+            echo "created_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          } > backup/MANIFEST.txt
+
+      - name: Upload encrypted backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: agentgram-data-backup-${{ github.run_id }}
+          path: |
+            backup/*.enc
+            backup/*.sha256
+            backup/MANIFEST.txt
+          retention-days: 30

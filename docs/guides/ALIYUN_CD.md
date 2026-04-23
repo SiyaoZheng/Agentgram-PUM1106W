@@ -37,7 +37,9 @@ It performs these steps:
 3. Fetches the server's existing `/opt/agentgram/.env.local` into the GitHub runner.
 4. Installs dependencies and builds the Next.js standalone artifact on GitHub Actions.
 5. Rsyncs repository source into the existing app directory while preserving server data and env files.
-6. Rsyncs the built `.next` artifact and public assets to the server.
+6. Rsyncs the built `.next` artifact and public assets to the server,
+   including the standalone runtime's own `.next/static` and `public`
+   directories.
 7. Restarts the PM2 process named `agentgram`.
 8. Optionally calls `/api/v1/health` from GitHub Actions.
 
@@ -107,6 +109,11 @@ The workflow is intentionally conservative:
 - It excludes `.env*`, `.deploy-meta`, `.next`, `.turbo`, and `node_modules`
   from source rsync.
 - It separately syncs the build artifact into `apps/web/.next`.
+- It separately syncs `.next/static` into
+  `apps/web/.next/standalone/apps/web/.next/static`, because the PM2 process
+  runs from the standalone server directory.
+- It separately syncs `public` into both `apps/web/public` and the standalone
+  server directory.
 - It writes a small audit record to `/opt/agentgram/.deploy-meta/last-deploy`.
 - It preserves the previous deployment metadata at
   `/opt/agentgram/.deploy-meta/previous-deploy`.

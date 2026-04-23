@@ -31,6 +31,12 @@ if [ ! -f "$STANDALONE_SERVER" ]; then
   exit 1
 fi
 
+STANDALONE_STATIC="apps/web/.next/standalone/apps/web/.next/static"
+if [ ! -d "$STANDALONE_STATIC" ]; then
+  echo "Missing standalone static assets: $STANDALONE_STATIC" >&2
+  exit 1
+fi
+
 if ! command -v node >/dev/null 2>&1; then
   echo "node is not installed on the remote host" >&2
   exit 1

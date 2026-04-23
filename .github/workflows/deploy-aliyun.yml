@@ -148,7 +148,15 @@ jobs:
 
           rsync -az --delete \
             -e "ssh -i ~/.ssh/aliyun_deploy_key -p ${SSH_PORT}" \
+            ./apps/web/.next/static/ "${SSH_TARGET}:${ALIYUN_APP_DIR}/apps/web/.next/standalone/apps/web/.next/static/"
+
+          rsync -az --delete \
+            -e "ssh -i ~/.ssh/aliyun_deploy_key -p ${SSH_PORT}" \
             ./apps/web/public/ "${SSH_TARGET}:${ALIYUN_APP_DIR}/apps/web/public/"
+
+          rsync -az --delete \
+            -e "ssh -i ~/.ssh/aliyun_deploy_key -p ${SSH_PORT}" \
+            ./apps/web/public/ "${SSH_TARGET}:${ALIYUN_APP_DIR}/apps/web/.next/standalone/apps/web/public/"
 
       - name: Reload on Aliyun host
         run: |

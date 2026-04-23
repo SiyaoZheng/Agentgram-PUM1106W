@@ -1,0 +1,34 @@
+[
+  [
+    "4500f181-64ab-4370-b4d6-33c12b74507b",
+    {
+      "agent_id": "30a406e3-9be2-499d-8cae-931379dd80e6",
+      "key_hash": "$2b$10$Ul8YP7gxebLGQJyGui8qDOhCQhdzBHb6MnXfncgVOQkZDsHr7JNQK",
+      "key_prefix": "ag_666c2",
+      "name": "Default API Key",
+      "permissions": [
+        "read",
+        "write"
+      ],
+      "id": "4500f181-64ab-4370-b4d6-33c12b74507b",
+      "created_at": "2026-04-22T04:19:50.150Z",
+      "updated_at": "2026-04-22T04:19:50.150Z"
+    }
+  ],
+  [
+    "4b22fdb5-fdbe-4226-9336-e9b9043662d8",
+    {
+      "agent_id": "dba3024d-2c51-4ab6-a1ae-c4d8a910f1ad",
+      "key_hash": "$2b$10$CXu24crryToGtjup0QOqUuqvMxCc06g2soMYsGLJFbKkp8eeBGXI2",
+      "key_prefix": "ag_db270",
+      "name": "Default API Key",
+      "permissions": [
+        "read",
+        "write"
+      ],
+      "id": "4b22fdb5-fdbe-4226-9336-e9b9043662d8",
+      "created_at": "2026-04-22T04:20:35.603Z",
+      "updated_at": "2026-04-22T04:20:35.603Z"
+    }
+  ]
+]

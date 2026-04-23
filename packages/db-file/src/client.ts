@@ -255,6 +255,8 @@ class QueryWrapper {
 }
 
 class InsertWrapper {
+  private shouldSelect = false;
+
   constructor(
     private store: FileStore,
     private table: string,
@@ -262,7 +264,41 @@ class InsertWrapper {
   ) {}
 
   select(_fields?: string) {
-    return this.execute();
+    this.shouldSelect = true;
+    return this;
+  }
+
+  single() {
+    return this.execute().then((result) => {
+      if (result.error) return result;
+      const rows = Array.isArray(result.data)
+        ? result.data
+        : result.data
+          ? [result.data]
+          : [];
+      if (rows.length === 0) {
+        return { data: null, error: { message: 'No rows found', code: 'PGRST116' } };
+      }
+      if (rows.length > 1) {
+        return { data: null, error: { message: 'Multiple rows found', code: 'PGRST116' } };
+      }
+      return { data: rows[0], error: null };
+    });
+  }
+
+  maybeSingle() {
+    return this.execute().then((result) => {
+      if (result.error) return result;
+      const rows = Array.isArray(result.data)
+        ? result.data
+        : result.data
+          ? [result.data]
+          : [];
+      if (rows.length === 0) {
+        return { data: null, error: null };
+      }
+      return { data: rows[0], error: null };
+    });
   }
 
   private async execute() {
@@ -313,15 +349,15 @@ class InsertWrapper {
     if (this.table === 'posts') {
       const enriched = results.map((r) => enrichPost(r, this.store));
       if (results.length === 1) {
-        return { data: enriched[0], error: null };
+        return { data: this.shouldSelect ? enriched[0] : null, error: null };
       }
-      return { data: enriched, error: null };
+      return { data: this.shouldSelect ? enriched : null, error: null };
     }
 
     if (results.length === 1) {
-      return { data: results[0], error: null };
+      return { data: this.shouldSelect ? results[0] : null, error: null };
     }
-    return { data: results, error: null };
+    return { data: this.shouldSelect ? results : null, error: null };
   }
 
   then(resolve: (result: { data: Record<string, unknown> | Record<string, unknown>[] | null; error: null | { message: string; code?: string } }) => void, reject?: (reason?: unknown) => void) {
@@ -331,6 +367,7 @@ class InsertWrapper {
 
 class UpdateWrapper {
   private filters: { column: string; op: string; value: unknown }[] = [];
+  private shouldSelect = false;
 
   constructor(
     private store: FileStore,
@@ -349,7 +386,41 @@ class UpdateWrapper {
   }
 
   select(_fields?: string) {
-    return this.execute();
+    this.shouldSelect = true;
+    return this;
+  }
+
+  single() {
+    return this.execute().then((result) => {
+      if (result.error) return result;
+      const rows = Array.isArray(result.data)
+        ? result.data
+        : result.data
+          ? [result.data]
+          : [];
+      if (rows.length === 0) {
+        return { data: null, error: { message: 'No rows found', code: 'PGRST116' } };
+      }
+      if (rows.length > 1) {
+        return { data: null, error: { message: 'Multiple rows found', code: 'PGRST116' } };
+      }
+      return { data: rows[0], error: null };
+    });
+  }
+
+  maybeSingle() {
+    return this.execute().then((result) => {
+      if (result.error) return result;
+      const rows = Array.isArray(result.data)
+        ? result.data
+        : result.data
+          ? [result.data]
+          : [];
+      if (rows.length === 0) {
+        return { data: null, error: null };
+      }
+      return { data: rows[0], error: null };
+    });
   }
 
   private async execute() {
@@ -373,12 +444,16 @@ class UpdateWrapper {
     if (this.table === 'posts') {
       results.forEach((r) => recalcPostScore(this.store, r.id as string));
       const enriched = results.map((r) => enrichPost(r, this.store));
-      if (enriched.length === 1) return { data: enriched[0], error: null };
-      return { data: enriched, error: null };
+      if (enriched.length === 1) {
+        return { data: this.shouldSelect ? enriched[0] : null, error: null };
+      }
+      return { data: this.shouldSelect ? enriched : null, error: null };
     }
 
-    if (results.length === 1) return { data: results[0], error: null };
-    return { data: results, error: null };
+    if (results.length === 1) {
+      return { data: this.shouldSelect ? results[0] : null, error: null };
+    }
+    return { data: this.shouldSelect ? results : null, error: null };
   }
 
   then(resolve: (result: { data: Record<string, unknown> | Record<string, unknown>[] | null; error: null | { message: string; code?: string } }) => void, reject?: (reason?: unknown) => void) {
@@ -388,6 +463,7 @@ class UpdateWrapper {
 
 class DeleteWrapper {
   private filters: { column: string; op: string; value: unknown }[] = [];
+  private shouldSelect = false;
 
   constructor(
     private store: FileStore,
@@ -405,7 +481,41 @@ class DeleteWrapper {
   }
 
   select(_fields?: string) {
-    return this.execute();
+    this.shouldSelect = true;
+    return this;
+  }
+
+  single() {
+    return this.execute().then((result) => {
+      if (result.error) return result;
+      const rows = Array.isArray(result.data)
+        ? result.data
+        : result.data
+          ? [result.data]
+          : [];
+      if (rows.length === 0) {
+        return { data: null, error: { message: 'No rows found', code: 'PGRST116' } };
+      }
+      if (rows.length > 1) {
+        return { data: null, error: { message: 'Multiple rows found', code: 'PGRST116' } };
+      }
+      return { data: rows[0], error: null };
+    });
+  }
+
+  maybeSingle() {
+    return this.execute().then((result) => {
+      if (result.error) return result;
+      const rows = Array.isArray(result.data)
+        ? result.data
+        : result.data
+          ? [result.data]
+          : [];
+      if (rows.length === 0) {
+        return { data: null, error: null };
+      }
+      return { data: rows[0], error: null };
+    });
   }
 
   private async execute() {
@@ -424,7 +534,10 @@ class DeleteWrapper {
       this.store.delete(this.table, row.id as string);
     }
 
-    return { data: rows.length > 0 ? rows : null, error: null };
+    return {
+      data: this.shouldSelect ? (rows.length > 0 ? rows : null) : null,
+      error: null,
+    };
   }
 
   then(resolve: (result: { data: Record<string, unknown>[] | null; error: null | { message: string; code?: string } }) => void, reject?: (reason?: unknown) => void) {
@@ -434,6 +547,7 @@ class DeleteWrapper {
 
 class UpsertWrapper {
   private conflictCols?: string[];
+  private shouldSelect = false;
 
   constructor(
     private store: FileStore,
@@ -447,7 +561,41 @@ class UpsertWrapper {
   }
 
   select(_fields?: string) {
-    return this.execute();
+    this.shouldSelect = true;
+    return this;
+  }
+
+  single() {
+    return this.execute().then((result) => {
+      if (result.error) return result;
+      const rows = Array.isArray(result.data)
+        ? result.data
+        : result.data
+          ? [result.data]
+          : [];
+      if (rows.length === 0) {
+        return { data: null, error: { message: 'No rows found', code: 'PGRST116' } };
+      }
+      if (rows.length > 1) {
+        return { data: null, error: { message: 'Multiple rows found', code: 'PGRST116' } };
+      }
+      return { data: rows[0], error: null };
+    });
+  }
+
+  maybeSingle() {
+    return this.execute().then((result) => {
+      if (result.error) return result;
+      const rows = Array.isArray(result.data)
+        ? result.data
+        : result.data
+          ? [result.data]
+          : [];
+      if (rows.length === 0) {
+        return { data: null, error: null };
+      }
+      return { data: rows[0], error: null };
+    });
   }
 
   private async execute() {
@@ -482,8 +630,10 @@ class UpsertWrapper {
       results.push(record);
     }
 
-    if (results.length === 1) return { data: results[0], error: null };
-    return { data: results, error: null };
+    if (results.length === 1) {
+      return { data: this.shouldSelect ? results[0] : null, error: null };
+    }
+    return { data: this.shouldSelect ? results : null, error: null };
   }
 
   then(resolve: (result: { data: Record<string, unknown> | Record<string, unknown>[] | null; error: null | { message: string; code?: string } }) => void, reject?: (reason?: unknown) => void) {

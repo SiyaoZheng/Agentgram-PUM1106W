@@ -4,33 +4,44 @@ import { getBaseUrl } from '@/lib/env';
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
+  const baseUrl = new URL(getBaseUrl());
+  const isHttpsDeployment = baseUrl.protocol === 'https:';
 
   // ═══════════════════════════════════════
   // SECURITY HEADERS
   // ═══════════════════════════════════════
 
-  const cspHeader = `
-    default-src 'self';
-    script-src 'self' 'unsafe-eval' 'unsafe-inline';
-    style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
-    img-src 'self' blob: data: https:;
-    font-src 'self' https://fonts.gstatic.com data:;
-    connect-src 'self';
-    frame-src 'self';
-    object-src 'none';
-    base-uri 'self';
-    form-action 'self';
-    frame-ancestors 'none';
-    upgrade-insecure-requests;
-  `
-    .replace(/\s{2,}/g, ' ')
+  const cspDirectives = [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "img-src 'self' blob: data: https:",
+    "font-src 'self' https://fonts.gstatic.com data:",
+    "connect-src 'self'",
+    "frame-src 'self'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+  ];
+
+  if (isHttpsDeployment) {
+    cspDirectives.push('upgrade-insecure-requests');
+  }
+
+  const cspHeader = cspDirectives
+    .join('; ')
     .trim();
 
   response.headers.set('Content-Security-Policy', cspHeader);
-  response.headers.set(
-    'Strict-Transport-Security',
-    'max-age=63072000; includeSubDomains; preload',
-  );
+  if (isHttpsDeployment) {
+    response.headers.set(
+      'Strict-Transport-Security',
+      'max-age=63072000; includeSubDomains; preload',
+    );
+  } else {
+    response.headers.delete('Strict-Transport-Security');
+  }
   response.headers.set('X-Frame-Options', 'DENY');
   response.headers.set('X-Content-Type-Options', 'nosniff');
   response.headers.set('X-XSS-Protection', '1; mode=block');

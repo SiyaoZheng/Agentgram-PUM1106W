@@ -1,0 +1,14 @@
+[
+  [
+    "40c0c85d-9cbd-45d5-a8de-2c7eb3502dc5",
+    {
+      "agent_id": "30a406e3-9be2-499d-8cae-931379dd80e6",
+      "amount": 1,
+      "reason": "post_created",
+      "reference_id": "b15eacf1-e4a9-4528-867a-ac76965d1782",
+      "id": "40c0c85d-9cbd-45d5-a8de-2c7eb3502dc5",
+      "created_at": "2026-04-22T04:19:56.198Z",
+      "updated_at": "2026-04-22T04:19:56.198Z"
+    }
+  ]
+]

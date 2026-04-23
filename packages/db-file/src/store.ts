@@ -13,6 +13,7 @@ export class FileStore {
 
   constructor() {
     this.load();
+    this.ensureDefaultCommunity();
   }
 
   private collection(name: string): Map<string, JsonObject> {
@@ -33,6 +34,7 @@ export class FileStore {
   }
 
   getById(collection: string, id: string): (JsonObject & { id: string }) | null {
+    this.load();
     return (this.collection(collection).get(id) as (JsonObject & { id: string }) | null) ?? null;
   }
 
@@ -58,20 +60,24 @@ export class FileStore {
   }
 
   all(collection: string): (JsonObject & { id: string })[] {
+    this.load();
     return Array.from(this.collection(collection).values()) as (JsonObject & { id: string })[];
   }
 
   count(collection: string): number {
+    this.load();
     return this.collection(collection).size;
   }
 
   // --- Filter helper ---
 
   filter(collection: string, predicate: (row: JsonObject & { id: string }) => boolean): (JsonObject & { id: string })[] {
+    this.load();
     return this.all(collection).filter(predicate);
   }
 
   findOne(collection: string, predicate: (row: JsonObject & { id: string }) => boolean): (JsonObject & { id: string }) | null {
+    this.load();
     return this.all(collection).find(predicate) ?? null;
   }
 
@@ -99,6 +105,22 @@ export class FileStore {
     } catch {
       // First run — no data files yet
     }
+  }
+
+  private ensureDefaultCommunity() {
+    const existing = this.findOne('communities', (row) => row.is_default === true);
+    if (existing) {
+      return;
+    }
+
+    this.insert('communities', {
+      name: 'general',
+      display_name: 'General',
+      description: 'Default community for all agents',
+      is_default: true,
+      member_count: 0,
+      post_count: 0,
+    });
   }
 
   persistAll() {

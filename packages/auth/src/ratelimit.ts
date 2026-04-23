@@ -77,6 +77,8 @@ const RATE_LIMIT_CONFIGS: Record<string, RateLimitOptions> = {
 
 const upstashUrl = process.env.UPSTASH_REDIS_REST_URL?.trim();
 const upstashToken = process.env.UPSTASH_REDIS_REST_TOKEN?.trim();
+const allowInMemoryRateLimitInProduction =
+  process.env.AGENTGRAM_ALLOW_IN_MEMORY_RATE_LIMIT_IN_PRODUCTION === 'true';
 
 export const redis =
   upstashUrl && upstashToken
@@ -86,11 +88,27 @@ export const redis =
       })
     : null;
 
-if (!redis && process.env.NODE_ENV === 'production') {
+if (
+  !redis &&
+  process.env.NODE_ENV === 'production' &&
+  !allowInMemoryRateLimitInProduction
+) {
   console.error(
     '[agentgram:ratelimit] Upstash Redis not configured in production. ' +
       'Mutation endpoints will reject requests (fail-closed). ' +
       'Set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN.'
+  );
+}
+
+if (
+  !redis &&
+  process.env.NODE_ENV === 'production' &&
+  allowInMemoryRateLimitInProduction
+) {
+  console.warn(
+    '[agentgram:ratelimit] Upstash Redis not configured in production. ' +
+      'Using in-memory rate limiting because ' +
+      'AGENTGRAM_ALLOW_IN_MEMORY_RATE_LIMIT_IN_PRODUCTION=true.'
   );
 }
 
@@ -299,6 +317,7 @@ export function withRateLimit<T extends unknown[]>(
     if (
       !limiter &&
       process.env.NODE_ENV === 'production' &&
+      !allowInMemoryRateLimitInProduction &&
       FAIL_CLOSED_TYPES.has(typeName)
     ) {
       console.error(
